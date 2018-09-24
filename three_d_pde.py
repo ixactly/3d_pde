@@ -1,3 +1,5 @@
+# coding:utf-8
+
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse import csc_matrix

@@ -1,7 +1,10 @@
+# coding:utf-8
+
 import numpy as np
 import three_d_pde as pde
+import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.axes3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D
 
 V = pde.solve_eq()
 
@@ -18,12 +21,13 @@ delta_x = (mesh.xmax - mesh.xmin)/nx
 delta_y = (mesh.ymax - mesh.ymin)/ny
 delta_z = (mesh.zmax - mesh.zmin)/nz
 
-for i in range(ny):
-    for j in range(nz):
-        for k in range(nx):
+for i in range(ny-1):
+    for j in range(nz-1):
+        for k in range(nx-1):
             Ez[i, j, k] = -(V[i+1, j, k]-V[i, j, k])/delta_z
             Ex[i, j, k] = -(V[i, j+1, k]-V[i, j, k])/delta_x
             Ey[i, j, k] = -(V[i, j, k+1]-V[i, j, k])/delta_y
+
 
 fig = plt.figure()
 ax = Axes3D(fig)
