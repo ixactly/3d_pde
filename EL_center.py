@@ -8,6 +8,7 @@ from matplotlib import cm
 
 with open('einzel_lens.binaryfile', 'rb') as lens:
     V = pickle.load(lens)
+
 mesh = pde.CartesianGrid()
 V_pre = V[:, int(mesh.ny/2), :]
 two_d_V = V_pre.transpose()
