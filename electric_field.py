@@ -1,18 +1,22 @@
 # coding:utf-8
 
 import numpy as np
-import three_d_pde as pde
-import matplotlib
 import matplotlib.pyplot as plt
+import three_d_pde as pde
 from mpl_toolkits.mplot3d import Axes3D
+import pickle
 
-V = pde.solve_eq()
+with open('einzel_lens.binaryfile', 'rb') as lens:
+    V = pickle.load(lens)
 
 mesh = pde.CartesianGrid()
+
 nx = mesh.nx
 ny = mesh.ny
 nz = mesh.nz
+
 Y ,Z ,X = mesh.create_meshgrid()
+
 Ex = np.empty((nz, nx, ny))
 Ey = np.empty((nz, nx, ny))
 Ez = np.empty((nz, nx, ny))
@@ -32,8 +36,9 @@ for i in range(ny-1):
 fig = plt.figure()
 ax = Axes3D(fig)
 
-ax.quiver(X, Y, Z, Ex, Ey, Ez, color='red', normalize=False)
+ax.quiver(X, Y, Z, Ex, Ey, Ez, color='red')
 ax.set_xlim([mesh.xmin, mesh.xmax])
 ax.set_ylim([mesh.ymin, mesh.ymax])
 ax.set_zlim([mesh.zmin, mesh.zmax])
+
 plt.show()

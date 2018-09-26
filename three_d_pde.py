@@ -5,12 +5,13 @@ from scipy.sparse import lil_matrix
 from scipy.sparse import csc_matrix
 import time
 
+
 class CartesianGrid:                                                            #基本構造
     """
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=100, ny=100, nz=100, xmin=-5, xmax=5, ymin=-5, ymax=5, zmin=-5, zmax=5):
+    def __init__(self, nx=150, ny=150, nz=150, xmin=-5, xmax=5, ymin=-5, ymax=5, zmin=-7, zmax=7):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -82,96 +83,3 @@ class CartesianGrid:                                                            
 
     def convert_to_3d_array(self, x):
         return x.reshape(self.nx, self.ny, self.nz)
-
-def calc_jacobi_matrix(mesh, Z):
-    """
-        Create sparse matrix for Jacobi method
-    """
-
-    A = lil_matrix((mesh.ntotal, mesh.ntotal))
-
-    for i in range(1, mesh.nz-1):
-        for j in range(1, mesh.ny-1):
-            for k in range(1, mesh.nx-1):
-
-                p = i*mesh.nz**2 + j*mesh.nx + k
-                p_ip1 = (i+1)*mesh.nz**2 + j*mesh.nx + k
-                p_im1 = (i-1)*mesh.nz**2 + j*mesh.nx + k
-                p_jp1 = i*mesh.nz**2 + (j+1)*mesh.nx + k
-                p_jm1 = i*mesh.nz**2 + (j-1)*mesh.nx + k
-                p_kp1 = i*mesh.nz**2 + j*mesh.nx + (k+1)
-                p_km1 = i*mesh.nz**2 + j*mesh.nx + (k-1)
-
-                if Z[i, j, k] != 0:                                             #0の時はe-10などで近似して、なんとかする
-                    A[p, p] = 1.0
-
-                else:
-                    A[p, p_ip1] = 1/6
-                    A[p, p_im1] = 1/6
-                    A[p, p_jp1] = 1/6
-                    A[p, p_jm1] = 1/6
-                    A[p, p_kp1] = 1/6
-                    A[p, p_km1] = 1/6
-
-    return A.tocsc()
-
-class IterationControl:
-    """
-        Class to control iteration loop
-    """
-
-    def __init__(self, max_iter, info_interval, tolerance):
-        self.max_iter = max_iter
-        self.info_interval = info_interval
-        self.tolerance = tolerance
-        self.eps = 1.0
-        self.iter = 0
-
-    def loop(self):
-        self.iter += 1
-        self.output_info()
-
-        if self.eps < self.tolerance:
-            return False
-        elif self.iter > self.max_iter:
-            print("max iteration reached")
-            return False
-        else:
-            return True
-
-    def calc_epsilon(self, dx):
-        self.eps = np.max(abs(dx))
-
-    def output_info(self):
-        if self.iter % self.info_interval == 0:
-            print("iter = %d, eps = %.3e" % (self.iter, self.eps))
-
-
-#main code
-def solve_eq():
-
-    mesh = CartesianGrid()
-
-    # einzel lens boundary condition
-    einzel_V = mesh.set_boundary_condition1(V_1 = 100, r = 4, eps=0.2)
-    einzel_0 = mesh.set_boundary_condition2(einzel_V)
-    einzel_V = mesh.set_boundary_condition1(V_1 = 100, r = 4, eps=0.2)
-
-    Einzel_Lens = mesh.make_einzel_lens(einzel_V, einzel_0, z1=1, z2=3, z3=4, z4=6, z5=7, z6=9)
-
-    A = calc_jacobi_matrix(mesh, Einzel_Lens)
-
-    k = mesh.convert_to_1d_array(Einzel_Lens)
-
-    iter_control = IterationControl(10000, 100, 1e-3)
-
-    start_time = time.time()
-
-    while iter_control.loop():
-        k_new = A.dot(k)
-        iter_control.calc_epsilon(k_new - k)
-        k, k_new = k_new, k
-
-    # reshape for surface plotting
-    k = mesh.convert_to_3d_array(k)
-    return k

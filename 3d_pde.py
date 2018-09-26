@@ -1,14 +1,17 @@
+# coding:utf-8
+
 import numpy as np
 from scipy.sparse import lil_matrix
 from scipy.sparse import csc_matrix
 import time
+import pickle
 
 class CartesianGrid:                                                            #基本構造
     """
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=10, ny=10, nz=10, xmin=0.0, xmax=1.0, ymin=0.0, ymax=1.0, zmin=0.0, zmax=1.0):
+    def __init__(self, nx=180, ny=4, nz=180, xmin=-5, xmax=5, ymin=-5, ymax=5, zmin=-7, zmax=7):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -30,47 +33,47 @@ class CartesianGrid:                                                            
     def create_meshgrid(self):                                                  #軸設定、max, minで表示する範囲を決定
         return np.meshgrid(self.x, self.y, self.z)
 
-    def set_boundary_condition1(self, V, r, eps=0.1):                                  #円柱状にデータを配列する
-        a = r*r - V                                                             #rをmeshgridに合わせて考えること
+    def set_boundary_condition1(self, V_1, r, eps=0.1):                                  #円柱状にデータを配列する
+        a = r*r - V_1                                                             #rをmeshgridに合わせて考えること
         X ,Y = np.meshgrid(self.x, self.y)
         Z = X**2 + Y**2 - a
         for i in range(self.nx):
             for j in range(self.ny):
-                if Z[i, j] > V + eps or Z[i, j] < V - eps:    #ok?
+                if Z[i, j] > V_1 + eps or Z[i, j] < V_1 - eps:
                     Z[i, j] = 0
-                    return Z
-                else:
-                    pass
 
-    def set_boundary_condition2(self, phi, V=1e-100):
+        Z = Z.reshape(1, self.nx, self.ny)
+        return Z
+
+    def set_boundary_condition2(self, phi, V_0=1e-100):
         for i in range(self.nx):
             for j in range(self.ny):
-                if phi[i, j] != 0.0:            #修正
-                    phi[i, j] = V
-                    return phi
+                if phi[0, i, j] != 0.0:            #修正
+                    phi[0, i, j] = V_0
+        return phi
 
     def make_einzel_lens(self, Z_V, Z_0, z1, z2, z3, z4, z5, z6):
-        Zeros = np.zeros((self.nx, self.ny))
-        Z_new = np.zeros((self.nx, self.ny))
-        for i in range(1, int(self.nz*z1/(self.zmax - self.zmin))):
+        Zeros = np.zeros((1, self.nx, self.ny))
+        Z_new = np.zeros((1, self.nx, self.ny))
+        for i in range(int(self.nz*z1/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Zeros))
 
-        for i in range(int(self.nz*z1/(self.zmax - self.zmin)+1), int(self.nz*z2/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*z1/(self.zmax - self.zmin)), int(self.nz*z2/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Z_0))
 
-        for i in range(int(self.nz*z2/(self.zmax - self.zmin)+1), int(self.nz*z3/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*z2/(self.zmax - self.zmin)), int(self.nz*z3/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Zeros))
 
-        for i in range(int(self.nz*z3/(self.zmax - self.zmin)+1), int(self.nz*z4/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*z3/(self.zmax - self.zmin)), int(self.nz*z4/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Z_V))
 
-        for i in range(int(self.nz*z4/(self.zmax - self.zmin)+1), int(self.nz*z5/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*z4/(self.zmax - self.zmin)), int(self.nz*z5/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Zeros))
 
-        for i in range(int(self.nz*z5/(self.zmax - self.zmin)+1), int(self.nz*z6/(self.zmax - self.zmin))):
+        for i in range(int(self.nz*z5/(self.zmax - self.zmin)), int(self.nz*z6/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Z_0))
 
-        for i in range(int(self.nz*z6/(self.zmax - self.zmin)+1), int(self.nz)):
+        for i in range(int(self.nz*z6/(self.zmax - self.zmin)), int(self.nz)-1):
             Z_new = np.vstack((Z_new, Zeros))
 
         return Z_new
@@ -89,16 +92,16 @@ def calc_jacobi_matrix(mesh, Z):
     A = lil_matrix((mesh.ntotal, mesh.ntotal))
 
     for i in range(1, mesh.nz-1):
-        for k in range(1, mesh.nx-1):
-            for j in range(1, mesh.ny-1):
+        for j in range(1, mesh.ny-1):
+            for k in range(1, mesh.nx-1):
 
-                p = i*mesh.nz**2 + k*mesh.nx + j
-                p_ip1 = (i+1)*mesh.nz**2 + k*mesh.nx + j
-                p_im1 = (i-1)*mesh.nz**2 + k*mesh.nx + j
-                p_kp1 = i*mesh.nz**2 + (k+1)*mesh.nx + j
-                p_km1 = i*mesh.nz**2 + (k-1)*mesh.nx + j
-                p_jp1 = i*mesh.nz**2 + k*mesh.nx + (j+1)
-                p_jm1 = i*mesh.nz**2 + k*mesh.nx + (j-1)
+                p = i*mesh.nz**2 + j*mesh.nx + k
+                p_ip1 = (i+1)*mesh.nz**2 + j*mesh.nx + k
+                p_im1 = (i-1)*mesh.nz**2 + j*mesh.nx + k
+                p_jp1 = i*mesh.nz**2 + (j+1)*mesh.nx + k
+                p_jm1 = i*mesh.nz**2 + (j-1)*mesh.nx + k
+                p_kp1 = i*mesh.nz**2 + j*mesh.nx + (k+1)
+                p_km1 = i*mesh.nz**2 + j*mesh.nx + (k-1)
 
                 if Z[i, j, k] != 0:                                             #0の時はe-10などで近似して、なんとかする
                     A[p, p] = 1.0
@@ -144,23 +147,24 @@ class IterationControl:
         if self.iter % self.info_interval == 0:
             print("iter = %d, eps = %.3e" % (self.iter, self.eps))
 
+
 #main code
-def solve_laplace_eq():
+def solve_eq():
 
-    mesh = CartesianGrid(30, 30, 30, -5, 5, -5, 5, -5, 5)
+    mesh = CartesianGrid()
 
-    # set boundary condition
-    einzel_V = mesh.set_boundary_condition1(V = 100, r = 5, eps=0.2)
     # einzel lens boundary condition
+    einzel_V = mesh.set_boundary_condition1(V_1 = 500, r = 2, eps=0.1)
     einzel_0 = mesh.set_boundary_condition2(einzel_V)
+    einzel_V = mesh.set_boundary_condition1(V_1 = 500, r = 2, eps=0.1)
 
-    Einzel_Lens = mesh.make_einzel_lens(einzel_V, einzel_0, z1=1, z2=3, z3=4, z4=6, z5=7, z6=9)
+    Einzel_Lens = mesh.make_einzel_lens(einzel_V, einzel_0, z1=1, z2=4, z3=5, z4=8, z5=9, z6=12)
 
     A = calc_jacobi_matrix(mesh, Einzel_Lens)
 
-    k = mesh.convert_to_1d_array(k)
+    k = mesh.convert_to_1d_array(Einzel_Lens)
 
-    iter_control = IterationControl(1000, 100, 1e-3)
+    iter_control = IterationControl(10000, 100, 1e-3)
 
     start_time = time.time()
 
@@ -169,14 +173,11 @@ def solve_laplace_eq():
         iter_control.calc_epsilon(k_new - k)
         k, k_new = k_new, k
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-
-    print("iter = %d, eps = %.3e, elapsed time = %.3f sec" \
-            % (iter_control.iter, iter_control.eps, elapsed_time))
-
     # reshape for surface plotting
     k = mesh.convert_to_3d_array(k)
+    return k
 
-if __name__=='__main__':
-    solve_laplace_eq()
+Potential = solve_eq()
+
+with open('einzel_lens.binaryfile', 'wb') as lens:
+    pickle.dump(Potential, lens)
