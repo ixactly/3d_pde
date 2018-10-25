@@ -11,7 +11,7 @@ class CartesianGrid:                                                            
         Simple class to generate a computational grid and apply boundary conditions
     """
 
-    def __init__(self, nx=180, ny=180, nz=180, xmin=-5, xmax=5, ymin=-5, ymax=5, zmin=-7, zmax=7):
+    def __init__(self, nx=150, ny=150, nz=150, xmin=-25, xmax=25, ymin=-25, ymax=25, zmin=-50, zmax=50):
         self.nx, self.ny, self.nz = nx, ny, nz
         self.ntotal = nx*ny*nz
 
@@ -33,7 +33,7 @@ class CartesianGrid:                                                            
     def create_meshgrid(self):                                                  #軸設定、max, minで表示する範囲を決定
         return np.meshgrid(self.x, self.y, self.z)
 
-    def set_boundary_condition1(self, V_1, r, eps=0.1):                                  #円柱状にデータを配列する
+    def set_boundary_condition1(self, V_1, r, eps):                                  #円柱状にデータを配列する
         a = r*r - V_1                                                             #rをmeshgridに合わせて考えること
         X ,Y = np.meshgrid(self.x, self.y)
         Z = X**2 + Y**2 - a
@@ -55,7 +55,7 @@ class CartesianGrid:                                                            
     def make_einzel_lens(self, Z_V, Z_0, z1, z2, z3, z4, z5, z6):
         Zeros = np.zeros((1, self.nx, self.ny))
         Z_new = np.zeros((1, self.nx, self.ny))
-        for i in range(int(self.nz*z1/(self.zmax - self.zmin))):
+        for j in range(int(self.nz*z1/(self.zmax - self.zmin))):
             Z_new = np.vstack((Z_new, Zeros))
 
         for i in range(int(self.nz*z1/(self.zmax - self.zmin)), int(self.nz*z2/(self.zmax - self.zmin))):
@@ -149,24 +149,22 @@ class IterationControl:
 
 
 #main code
-def solve_eq():
 
+def solve_eq():
     mesh = CartesianGrid()
 
     # einzel lens boundary condition
-    einzel_V = mesh.set_boundary_condition1(V_1 = 500, r = 2, eps=0.1)
+    einzel_V = mesh.set_boundary_condition1(V_1 = 1600, r = 20, eps=9)
     einzel_0 = mesh.set_boundary_condition2(einzel_V)
-    einzel_V = mesh.set_boundary_condition1(V_1 = 500, r = 2, eps=0.1)
+    einzel_V = mesh.set_boundary_condition1(V_1 = 1600, r = 20, eps=9)
 
-    Einzel_Lens = mesh.make_einzel_lens(einzel_V, einzel_0, z1=1, z2=4, z3=5, z4=8, z5=9, z6=12)
+    Einzel_Lens = mesh.make_einzel_lens(einzel_V, einzel_0, z1=5, z2=25, z3=30, z4=60, z5=65, z6=95)
 
     A = calc_jacobi_matrix(mesh, Einzel_Lens)
 
     k = mesh.convert_to_1d_array(Einzel_Lens)
 
-    iter_control = IterationControl(20000, 100, 1e-3)
-
-    start_time = time.time()
+    iter_control = IterationControl(30000, 100, 1e-3)
 
     while iter_control.loop():
         k_new = A.dot(k)
@@ -179,5 +177,6 @@ def solve_eq():
 
 Potential = solve_eq()
 
-with open('einzel_lens.binaryfile', 'wb') as lens:
+with open('einzel_lens_vector.binaryfile', 'wb') as lens:
     pickle.dump(Potential, lens)
+    
